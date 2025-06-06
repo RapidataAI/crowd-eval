@@ -102,7 +102,7 @@ class ImageEvaluator(CheckpointEvaluator):
                 instruction="Which image matches the description better?",
                 datapoints=datapoints[0],
                 contexts=datapoints[1],
-                validation_datapoints="6790c1b73711ca1ae1d948c3",
+                validation_set_id="6790c1b73711ca1ae1d948c3",
                 responses_per_datapoint=IMAGE_EVALUATION_RESPONSES_PER_DATAPOINT,
             ).run()
         )
