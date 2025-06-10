@@ -14,7 +14,7 @@ A Python library for integrating crowd evaluation into your machine learning tra
 
 ```python
 import wandb
-from checkpoint_evaluation.image_checkpoint_evaluator import ImageEvaluator
+from src.crowd_eval.checkpoint_evaluation.image_checkpoint_evaluator import ImageEvaluator
 
 # Initialize wandb
 run = wandb.init(project="my-project")
@@ -48,7 +48,13 @@ run.finish()
 - A [Rapidata](https://rapidata.ai/) account with API credentials
 - A [Weights & Biases](https://wandb.ai/) account
 
-### Dependencies
+### Pip install (recommended)
+
+```bash
+pip install crowd-eval
+```
+
+### Local install
 
 #### Prerequisites
 Install uv if you haven't already:
@@ -77,7 +83,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
     uv sync
     ```
 
-### Environment Setup
+### Environment Setup (optional for different usecases)
 
 Create a `.env` file in your project root:
 
@@ -124,7 +130,7 @@ import sys
 import openai
 import requests
 import wandb
-from checkpoint_evaluation.image_checkpoint_evaluator import ImageEvaluator
+from src.crowd_eval.checkpoint_evaluation.image_checkpoint_evaluator import ImageEvaluator
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -175,6 +181,90 @@ if __name__ == "__main__":
     evaluator.wait_for_all_evaluations()
     run.finish()
 ```
+
+## Custom Baseline
+
+By default, the `ImageEvaluator` compares your generated images against a pre-defined set of baseline images from GPT-4o. However, you can define your own custom baseline images and prompts for more targeted evaluation scenarios.
+
+### Setting Up a Custom Baseline
+
+Use the `define_baseline()` method to specify your own baseline images and prompts:
+
+```python
+# Define custom baseline with your own images and prompts
+evaluator.define_baseline(
+    image_paths=[
+        "path/to/baseline_image_1.png",
+        "path/to/baseline_image_2.png",
+        "https://example.com/remote_baseline.jpg"  # URLs also supported
+    ],
+    prompts=[
+        "A serene mountain landscape",
+        "A futuristic city skyline", 
+        "An abstract geometric pattern"
+    ]
+)
+```
+
+### How Custom Baselines Work
+
+When you define a custom baseline:
+
+1. **Image Naming**: Your generated images no longer need to follow the `*_{prompt_id}.png` naming convention
+2. **Direct Comparison**: Each generated image is compared directly against the corresponding baseline image at the same index
+3. **Custom Prompts**: The evaluation uses your provided prompts instead of the default dataset
+4. **Matched Pairs**: The number of generated images must match the number of baseline images
+
+### Complete Example with Custom Baseline
+
+```python
+import wandb
+from src.crowd_eval.checkpoint_evaluation.image_checkpoint_evaluator import ImageEvaluator
+
+# Initialize
+run = wandb.init(project="custom-baseline-eval")
+evaluator = ImageEvaluator(wandb_run=run, model_name="my-model")
+
+# Set up custom baseline
+evaluator.define_baseline(
+    image_paths=[
+        "baselines/reference_1.png",
+        "baselines/reference_2.png"
+    ],
+    prompts=[
+        "A red sports car",
+        "A sunset over the ocean"
+    ]
+)
+
+# Training loop
+for step in range(10):
+    # Your training code here...
+    
+    if step % 5 == 0:
+        # Generate images for your custom prompts
+        generated_images = [
+            f"outputs/step_{step}_car.png",      # Compares against baselines/reference_1.png
+            f"outputs/step_{step}_sunset.png"   # Compares against baselines/reference_2.png
+        ]
+        
+        # Evaluate against your custom baseline
+        evaluator.evaluate(generated_images)
+
+# Wait for evaluations and finish
+evaluator.wait_for_all_evaluations()
+run.finish()
+```
+
+### Benefits of Custom Baselines
+
+- **Domain-Specific Evaluation**: Use baselines relevant to your specific use case
+- **Consistent Comparison**: Compare against the same reference images across training runs  
+- **Flexible Prompts**: Use any prompts that make sense for your model's intended application
+- **Quality Control**: Establish known-good reference images as quality benchmarks
+
+
+
 
 ## Troubleshooting
 

@@ -3,7 +3,7 @@ name = "crowd-eval"
 version = "0.1.7"
 description = "Human evaluation tools for AI models and datasets"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = [
     "rapidata>=2.27.0",
     "wandb>=0.20.0",
