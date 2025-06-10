@@ -1,6 +1,5 @@
 from rapidata import RapidataClient, RapidataOutputManager
-from logger.ordered_wandb_logger import OrderedWandbLogger
-import pandas as pd
+from crowd_eval.logger.ordered_wandb_logger import OrderedWandbLogger
 from wandb.sdk.wandb_run import Run
 from typing import Any, Optional
 import asyncio

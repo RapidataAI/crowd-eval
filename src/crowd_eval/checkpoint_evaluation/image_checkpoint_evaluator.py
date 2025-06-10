@@ -1,7 +1,7 @@
 import asyncio
 import os
 import pandas as pd
-from checkpoint_evaluation.checkpoint_evaluator import CheckpointEvaluator
+from crowd_eval.checkpoint_evaluation.checkpoint_evaluator import CheckpointEvaluator
 from wandb.sdk.wandb_run import Run
 
 IMAGE_EVALUATION_RESPONSES_PER_DATAPOINT = 15
