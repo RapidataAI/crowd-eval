@@ -15,7 +15,7 @@ class Evaluator:
     def __init__(self, wandb_run: Run, model_name: str | None = None, client_id: str | None = None, client_secret: str | None = None):
         RapidataOutputManager.enable_silent_mode()
         self.client = RapidataClient(client_id=client_id, client_secret=client_secret)
-        self.model_name = model_name
+        self.model_name = model_name or "model"
         self.logger = OrderedWandbLogger(wandb_run)
         self.prompts = self._get_prompts()
         self.baseline_prompts = None

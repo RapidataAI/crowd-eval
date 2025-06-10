@@ -4,11 +4,11 @@ import pandas as pd
 from crowd_eval.checkpoint_evaluation.checkpoint_evaluator import Evaluator
 from wandb.sdk.wandb_run import Run
 
-IMAGE_EVALUATION_RESPONSES_PER_DATAPOINT = 10
 
 class ImageEvaluator(Evaluator):
     def __init__(self, wandb_run: Run, model_name: str | None = None, client_id: str | None = None, client_secret: str | None = None):
         super().__init__(wandb_run, model_name, client_id, client_secret)
+        self.image_evaluation_responses_per_datapoint = 10
 
     def evaluate(self, image_paths: list[str], step: int | None = None) -> None:
         """
@@ -87,7 +87,7 @@ class ImageEvaluator(Evaluator):
                 instruction="Which image do you prefer?",
                 datapoints=self._get_datapoints(image_paths)[0],
                 validation_set_id="66d5ac99fc00255c2926df0c",
-                responses_per_datapoint=IMAGE_EVALUATION_RESPONSES_PER_DATAPOINT,
+                responses_per_datapoint=self.image_evaluation_responses_per_datapoint,
             ).run()
         )
 
@@ -108,7 +108,7 @@ class ImageEvaluator(Evaluator):
                 datapoints=datapoints[0],
                 contexts=datapoints[1],
                 validation_set_id="6790c1b73711ca1ae1d948c3",
-                responses_per_datapoint=IMAGE_EVALUATION_RESPONSES_PER_DATAPOINT,
+                responses_per_datapoint=self.image_evaluation_responses_per_datapoint,
             ).run()
         )
         # Wait for results asynchronously with polling using base class method
@@ -127,7 +127,7 @@ class ImageEvaluator(Evaluator):
                 instruction="Which image has more glitches and is more likely to be AI generated?",
                 datapoints=datapoints[0],
                 validation_set_id="67cafc95bc71604b08d8aa62",
-                responses_per_datapoint=IMAGE_EVALUATION_RESPONSES_PER_DATAPOINT,
+                responses_per_datapoint=self.image_evaluation_responses_per_datapoint,
             ).run()
         )
         # Wait for results asynchronously with polling using base class method
