@@ -1,0 +1,130 @@
+name: Release and Publish
+on:
+  workflow_dispatch:
+    inputs:
+      version_part:
+        description: 'Version part to bump (patch, minor, major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+
+jobs:
+  release-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+    
+    - name: Configure Git
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+    
+    - name: Update version
+      id: update_version
+      run: |
+        old_version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        
+        # Bump version
+        python3 << 'EOF'
+        import tomllib
+        import re
+        
+        # Read current version
+        with open('pyproject.toml', 'rb') as f:
+            data = tomllib.load(f)
+        current_version = data['project']['version']
+        
+        # Parse version
+        major, minor, patch = map(int, current_version.split('.'))
+        
+        # Bump version
+        if "${{ github.event.inputs.version_part }}" == "major":
+            major += 1
+            minor = 0
+            patch = 0
+        elif "${{ github.event.inputs.version_part }}" == "minor":
+            minor += 1
+            patch = 0
+        else:  # patch
+            patch += 1
+        
+        new_version = f"{major}.{minor}.{patch}"
+        
+        # Update pyproject.toml
+        with open('pyproject.toml', 'r') as f:
+            content = f.read()
+        
+        content = re.sub(r'version = "[^"]*"', f'version = "{new_version}"', content)
+        
+        with open('pyproject.toml', 'w') as f:
+            f.write(content)
+        
+        print(f"Updated version to {new_version}")
+        EOF
+        
+        new_version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        echo "new_version=$new_version" >>$GITHUB_OUTPUT
+        echo "old_version=$old_version" >>$GITHUB_OUTPUT
+    
+    - name: Update version in Python code
+      run: |
+        python3 << 'EOF'
+        import os
+        version = "${{ steps.update_version.outputs.new_version }}"
+        
+        # Update src/__init__.py
+        init_file = "src/__init__.py"
+        if os.path.exists(init_file):
+            with open(init_file, 'r') as f:
+                content = f.read()
+            
+            import re
+            content = re.sub(r'__version__\s*=\s*["\'][^"\']*["\']', f'__version__ = "{version}"', content)
+            
+            with open(init_file, 'w') as f:
+                f.write(content)
+            print(f"Updated {init_file} with version {version}")
+        else:
+            print(f"Creating {init_file} with version {version}")
+            with open(init_file, 'w') as f:
+                f.write(f'__version__ = "{version}"\n')
+        EOF
+    
+    - name: Commit and push changes
+      run: |
+        git add pyproject.toml src/__init__.py
+        git commit -m "Bump version from ${{ steps.update_version.outputs.old_version }} to ${{ steps.update_version.outputs.new_version }}"
+        git push
+    
+    - name: Create and push tag
+      run: |
+        git tag v${{ steps.update_version.outputs.new_version }}
+        git push origin v${{ steps.update_version.outputs.new_version }}
+    
+    - name: Build and publish
+      env:
+        PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      run: |
+        uv build
+        uv publish --token $PYPI_TOKEN
+    
+    - name: List dist contents
+      run: ls -l dist/
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ steps.update_version.outputs.new_version }}
+        name: Release v${{ steps.update_version.outputs.new_version }}
+        files: |
+          dist/*.whl
+          dist/*.tar.gz
