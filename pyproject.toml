@@ -1,13 +1,17 @@
 [project]
 name = "human-eval"
 version = "0.1.0"
-description = "Add your description here"
+description = "Human evaluation tools for AI models and datasets"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "rapidata>=2.27.0",
     "wandb>=0.20.0",
 ]
 
-[tool.uv.workspace]
-members = ["human-eval"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatchling.build.targets.wheel]
+packages = ["src"]
