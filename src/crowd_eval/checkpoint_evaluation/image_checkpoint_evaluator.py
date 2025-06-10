@@ -1,12 +1,12 @@
 import asyncio
 import os
 import pandas as pd
-from crowd_eval.checkpoint_evaluation.checkpoint_evaluator import CheckpointEvaluator
+from crowd_eval.checkpoint_evaluation.checkpoint_evaluator import Evaluator
 from wandb.sdk.wandb_run import Run
 
-IMAGE_EVALUATION_RESPONSES_PER_DATAPOINT = 15
+IMAGE_EVALUATION_RESPONSES_PER_DATAPOINT = 10
 
-class ImageEvaluator(CheckpointEvaluator):
+class ImageEvaluator(Evaluator):
     def __init__(self, wandb_run: Run, model_name: str | None = None, client_id: str | None = None, client_secret: str | None = None):
         super().__init__(wandb_run, model_name, client_id, client_secret)
 
@@ -21,8 +21,13 @@ class ImageEvaluator(CheckpointEvaluator):
         """
         if not image_paths:
             raise ValueError("No image paths provided")
-        # Reserve the log index immediately (this is thread-safe)
-        self._check_images(image_paths)
+        if self.baseline_media is not None:
+            if not len(image_paths) == len(self.baseline_media):
+                raise ValueError("Number of images must match the number of baseline images")
+            
+        if not self.baseline_media:
+            self._check_images(image_paths)
+        
         assigned_index = self.logger.reserve_log_index(step)
         
         # Schedule the background evaluation using the base class method
@@ -132,8 +137,11 @@ class ImageEvaluator(CheckpointEvaluator):
         return 1 - float(average_score) # Invert the score because the question is inverted
 
     def _get_datapoints(self, image_paths: list[str]) -> tuple[list[list[str]], list[str]]:
+        if self.baseline_media is not None:
+            return [[image_path, base_image_path] for image_path, base_image_path in zip(image_paths, self.baseline_media)], self.baseline_prompts
+        
         base_image_path = "https://assets.rapidata.ai/4o-26-3-25"
         prompt_ids = [x.split(os.path.sep)[-1].split("_")[-1].split(".")[0] for x in image_paths]
         image_paths = [[image_path, f"{base_image_path}/{prompt_id}.webp"] for prompt_id, image_path in zip(prompt_ids, image_paths)]
-        prompt_ids = [self.prompts[int(prompt_id)] for prompt_id in prompt_ids]
-        return image_paths, prompt_ids
+        prompts = [self.prompts[int(prompt_id)] for prompt_id in prompt_ids]
+        return image_paths, prompts

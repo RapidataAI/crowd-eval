@@ -11,18 +11,26 @@ from rapidata.api_client.models.order_state import OrderState
 from rapidata.rapidata_client.order.rapidata_results import RapidataResults
 from rapidata.rapidata_client.order.rapidata_order import RapidataOrder
 
-class CheckpointEvaluator:
+class Evaluator:
     def __init__(self, wandb_run: Run, model_name: str | None = None, client_id: str | None = None, client_secret: str | None = None):
         RapidataOutputManager.enable_silent_mode()
         self.client = RapidataClient(client_id=client_id, client_secret=client_secret)
         self.model_name = model_name
         self.logger = OrderedWandbLogger(wandb_run)
         self.prompts = self._get_prompts()
+        self.baseline_prompts = None
+        self.baseline_media = None
         
         # Keep track of background tasks to prevent garbage collection
         self._background_tasks: set[Any] = set()
         self._background_loop: Optional[asyncio.AbstractEventLoop] = None
         self._background_thread: Optional[threading.Thread] = None
+
+    def define_baseline(self, image_paths: list[str], prompts: list[str]) -> None:
+        if len(image_paths) != len(prompts):
+            raise ValueError("Number of images and prompts must be the same")
+        self.baseline_prompts = prompts
+        self.baseline_media = image_paths
 
     @abstractmethod
     def evaluate(self, step: int | None = None) -> None:
