@@ -1,6 +1,6 @@
 [project]
-name = "human-eval"
-version = "0.1.1"
+name = "crowd-eval"
+version = "0.1.0"
 description = "Human evaluation tools for AI models and datasets"
 readme = "README.md"
 requires-python = ">=3.11"
