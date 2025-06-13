@@ -8,8 +8,19 @@ from wandb.sdk.wandb_run import Run
 class ImageEvaluator(Evaluator):
     def __init__(self, wandb_run: Run, model_name: str | None = None, client_id: str | None = None, client_secret: str | None = None):
         super().__init__(wandb_run, model_name, client_id, client_secret)
-        self.image_evaluation_responses_per_datapoint = 10
+        self._responses_coherence = 10
+        self._responses_alignment = 10
+        self._responses_preference = 10
 
+    def disable_alignment_evaluation(self) -> None:
+        self._responses_alignment = 0
+    
+    def disable_coherence_evaluation(self) -> None:
+        self._responses_coherence = 0
+    
+    def disable_preference_evaluation(self) -> None:
+        self._responses_preference = 0
+        
     def evaluate(self, image_paths: list[str], step: int | None = None) -> None:
         """
         Fire-and-forget evaluation that will log results to wandb when complete.
@@ -19,6 +30,9 @@ class ImageEvaluator(Evaluator):
             image_paths: List of image paths to evaluate
             step: Step number for wandb logging (if None, auto-assigned)
         """
+        if self._responses_preference + self._responses_alignment + self._responses_coherence == 0:
+            raise ValueError("No evaluations enabled")
+        
         if not image_paths:
             raise ValueError("No image paths provided")
         if self.baseline_media is not None:
@@ -54,13 +68,21 @@ class ImageEvaluator(Evaluator):
     async def _background_evaluate(self, image_paths: list[str], assigned_index: int) -> None:
         """Background evaluation that logs when complete."""
         try:
-            preference_score, alignment_score, coherence_score = await self._evaluate_image_async(image_paths, assigned_index)
-            await self.logger.log_at_index(assigned_index, 
-                                           {f"rapidata/{self.model_name}_preference_image": preference_score, 
-                                            f"rapidata/{self.model_name}_alignment_image": alignment_score, 
-                                            f"rapidata/{self.model_name}_coherence_image": coherence_score,
-                                            f"rapidata/{self.model_name}_average_score": (preference_score + alignment_score + coherence_score) / 3})
-            print(f"Evaluation completed for step {assigned_index} with scores: {preference_score}, {alignment_score}, {coherence_score}")
+            scores = await self._evaluate_image_async(image_paths, assigned_index)
+            log_dict = {}
+            score_sum = 0
+            score_count = 0
+            for score, name in zip(scores, ["preference", "alignment", "coherence"]):
+                if score is not None:
+                    log_dict[f"rapidata/{self.model_name}_{name}_score"] = score
+                    score_sum += score
+                    score_count += 1
+
+            if score_count > 0:
+                log_dict[f"rapidata/{self.model_name}_average_score"] = score_sum / score_count
+
+            await self.logger.log_at_index(assigned_index, log_dict)
+            print(f"Evaluation completed for step {assigned_index} with scores: {log_dict}")
         except Exception as e:
             print(f"Background evaluation failed for step {assigned_index}: {e}")
             import traceback
@@ -80,6 +102,9 @@ class ImageEvaluator(Evaluator):
 
     async def _evaluate_preference_image_async(self, image_paths: list[str], assigned_index: int) -> float:
         """Async version that polls for results without blocking."""
+        if self._responses_preference == 0:
+            return None
+        
         # Create and start the order - this is fast
         order = await asyncio.to_thread(
             lambda: self.client.order.create_compare_order(
@@ -87,7 +112,7 @@ class ImageEvaluator(Evaluator):
                 instruction="Which image do you prefer?",
                 datapoints=self._get_datapoints(image_paths)[0],
                 validation_set_id="66d5ac99fc00255c2926df0c",
-                responses_per_datapoint=self.image_evaluation_responses_per_datapoint,
+                responses_per_datapoint=self._responses_preference,
             ).run()
         )
 
@@ -99,6 +124,9 @@ class ImageEvaluator(Evaluator):
     
     async def _evaluate_alignment_image_async(self, image_paths: list[str], assigned_index: int) -> float:
         """Async version that polls for results without blocking."""
+        if self._responses_alignment == 0:
+            return None
+        
         # Create and start the order - this is fast
         datapoints = self._get_datapoints(image_paths)
         order = await asyncio.to_thread(
@@ -108,7 +136,7 @@ class ImageEvaluator(Evaluator):
                 datapoints=datapoints[0],
                 contexts=datapoints[1],
                 validation_set_id="6790c1b73711ca1ae1d948c3",
-                responses_per_datapoint=self.image_evaluation_responses_per_datapoint,
+                responses_per_datapoint=self._responses_alignment,
             ).run()
         )
         # Wait for results asynchronously with polling using base class method
@@ -119,6 +147,9 @@ class ImageEvaluator(Evaluator):
     
     async def _evaluate_coherence_image_async(self, image_paths: list[str], assigned_index: int) -> float:
         """Async version that polls for results without blocking."""
+        if self._responses_coherence == 0:
+            return None
+        
         # Create and start the order - this is fast
         datapoints = self._get_datapoints(image_paths)
         order = await asyncio.to_thread(
@@ -127,7 +158,7 @@ class ImageEvaluator(Evaluator):
                 instruction="Which image has more glitches and is more likely to be AI generated?",
                 datapoints=datapoints[0],
                 validation_set_id="67cafc95bc71604b08d8aa62",
-                responses_per_datapoint=self.image_evaluation_responses_per_datapoint,
+                responses_per_datapoint=self._responses_coherence,
             ).run()
         )
         # Wait for results asynchronously with polling using base class method
