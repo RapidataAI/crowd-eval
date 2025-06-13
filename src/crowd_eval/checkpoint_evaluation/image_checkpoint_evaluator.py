@@ -54,7 +54,7 @@ class ImageEvaluator(Evaluator):
     async def _background_evaluate(self, image_paths: list[str], assigned_index: int) -> None:
         """Background evaluation that logs when complete."""
         try:
-            preference_score, alignment_score, coherence_score = await self._evaluate_image_async(image_paths)
+            preference_score, alignment_score, coherence_score = await self._evaluate_image_async(image_paths, assigned_index)
             await self.logger.log_at_index(assigned_index, 
                                            {f"rapidata/{self.model_name}_preference_image": preference_score, 
                                             f"rapidata/{self.model_name}_alignment_image": alignment_score, 
@@ -66,24 +66,24 @@ class ImageEvaluator(Evaluator):
             import traceback
             traceback.print_exc()
 
-    async def _evaluate_image_async(self, image_paths: list[str]) -> tuple[float, float, float]:
+    async def _evaluate_image_async(self, image_paths: list[str], assigned_index: int) -> tuple[float, float, float]:
         """Async version of _evaluate_image method - runs all evaluations concurrently."""
         # Start all three evaluations concurrently and wait for completion
         preference_score, alignment_score, coherence_score = await asyncio.gather(
-            self._evaluate_preference_image_async(image_paths),
-            self._evaluate_alignment_image_async(image_paths),
-            self._evaluate_coherence_image_async(image_paths)
+            self._evaluate_preference_image_async(image_paths, assigned_index),
+            self._evaluate_alignment_image_async(image_paths, assigned_index),
+            self._evaluate_coherence_image_async(image_paths, assigned_index)
         )
 
         return preference_score, alignment_score, coherence_score
 
 
-    async def _evaluate_preference_image_async(self, image_paths: list[str]) -> float:
+    async def _evaluate_preference_image_async(self, image_paths: list[str], assigned_index: int) -> float:
         """Async version that polls for results without blocking."""
         # Create and start the order - this is fast
         order = await asyncio.to_thread(
             lambda: self.client.order.create_compare_order(
-                name=f"{self.model_name}_preference_image",
+                name=f"{self.model_name}_preference_image_{assigned_index}",
                 instruction="Which image do you prefer?",
                 datapoints=self._get_datapoints(image_paths)[0],
                 validation_set_id="66d5ac99fc00255c2926df0c",
@@ -97,13 +97,13 @@ class ImageEvaluator(Evaluator):
         average_score = results["A_summedUserScoresRatios"].mean()
         return float(average_score)
     
-    async def _evaluate_alignment_image_async(self, image_paths: list[str]) -> float:
+    async def _evaluate_alignment_image_async(self, image_paths: list[str], assigned_index: int) -> float:
         """Async version that polls for results without blocking."""
         # Create and start the order - this is fast
         datapoints = self._get_datapoints(image_paths)
         order = await asyncio.to_thread(
             lambda: self.client.order.create_compare_order(
-                name=f"{self.model_name}_alignment_image",
+                name=f"{self.model_name}_alignment_image_{assigned_index}",
                 instruction="Which image matches the description better?",
                 datapoints=datapoints[0],
                 contexts=datapoints[1],
@@ -117,13 +117,13 @@ class ImageEvaluator(Evaluator):
         average_score = results["A_summedUserScoresRatios"].mean()
         return float(average_score)
     
-    async def _evaluate_coherence_image_async(self, image_paths: list[str]) -> float:
+    async def _evaluate_coherence_image_async(self, image_paths: list[str], assigned_index: int) -> float:
         """Async version that polls for results without blocking."""
         # Create and start the order - this is fast
         datapoints = self._get_datapoints(image_paths)
         order = await asyncio.to_thread(
             lambda: self.client.order.create_compare_order(
-                name=f"{self.model_name}_coherence_image",
+                name=f"{self.model_name}_coherence_image_{assigned_index}",
                 instruction="Which image has more glitches and is more likely to be AI generated?",
                 datapoints=datapoints[0],
                 validation_set_id="67cafc95bc71604b08d8aa62",
