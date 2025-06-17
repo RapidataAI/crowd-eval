@@ -4,7 +4,6 @@ import pandas as pd
 from crowd_eval.checkpoint_evaluation.checkpoint_evaluator import Evaluator
 from wandb.sdk.wandb_run import Run
 
-
 class ImageEvaluator(Evaluator):
     def __init__(self, wandb_run: Run, model_name: str | None = None, client_id: str | None = None, client_secret: str | None = None):
         super().__init__(wandb_run, model_name, client_id, client_secret)
@@ -21,7 +20,7 @@ class ImageEvaluator(Evaluator):
     def disable_preference_evaluation(self) -> None:
         self._responses_preference = 0
         
-    def evaluate(self, image_paths: list[str], step: int | None = None) -> None:
+    def evaluate(self, image_paths: list[str], step: int | None = None, additional_logs: dict[str, int | float] | None = None) -> None:
         """
         Fire-and-forget evaluation that will log results to wandb when complete.
         This method returns immediately and evaluation happens in background.
@@ -29,6 +28,7 @@ class ImageEvaluator(Evaluator):
         Args:
             image_paths: List of image paths to evaluate
             step: Step number for wandb logging (if None, auto-assigned)
+            additional_logs: Additional logs to add to the evaluation. Will be logged at the same step as the evaluation.
         """
         if self._responses_preference + self._responses_alignment + self._responses_coherence == 0:
             raise ValueError("No evaluations enabled")
@@ -42,7 +42,7 @@ class ImageEvaluator(Evaluator):
         if not self.baseline_media:
             self._check_images(image_paths)
         
-        assigned_index = self.logger.reserve_log_index(step)
+        assigned_index = self.logger.reserve_log_index(step, additional_logs)
         
         # Schedule the background evaluation using the base class method
         coro = self._background_evaluate(image_paths, assigned_index)
