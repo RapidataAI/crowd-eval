@@ -24,6 +24,9 @@ class ImageEvaluator(Evaluator):
         """
         Fire-and-forget evaluation that will log results to wandb when complete.
         This method returns immediately and evaluation happens in background.
+
+        IMPORTANT: Additional logs will be logged at the same step as the evaluation with the Rapidata_step metric.
+            Do not use the same key for additional logs and metrics.
         
         Args:
             image_paths: List of image paths to evaluate
