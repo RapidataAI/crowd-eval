@@ -9,6 +9,7 @@ class OrderedWandbLogger:
         self.reserved_indexes = set()
         self.logged_indexes = set()
         self.additional_logs = {}
+        self.defined_metrics = set()
         self.custom_step = "rapidata/step"
         self.wandb_run.define_metric("rapidata/*", step_metric=self.custom_step)    
 
@@ -31,7 +32,9 @@ class OrderedWandbLogger:
         self.additional_logs[assigned_index] = additional_logs or {}
         if additional_logs:
             for key in additional_logs.keys():
-                self.wandb_run.define_metric(key, step_metric=self.custom_step)
+                if key not in self.defined_metrics:
+                    self.wandb_run.define_metric(key, step_metric=self.custom_step)
+                    self.defined_metrics.add(key)
 
         return assigned_index
     
@@ -41,7 +44,7 @@ class OrderedWandbLogger:
         Will wait to log until all earlier indexes have been logged.
         The index becomes the wandb step.
         """
-        log_dict = {self.custom_step: index, **metrics, **self.additional_logs[index]}
+        log_dict = {self.custom_step: index, **metrics, **self.additional_logs.pop(index, {})}
 
         self.wandb_run.log(log_dict)
         self.logged_indexes.add(index)
