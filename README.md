@@ -2,7 +2,11 @@
 
 A Python library for integrating crowd evaluation into your machine learning training loops. This library provides asynchronous, non-blocking evaluation of model outputs (currently supporting image generation) with automatic logging to Weights & Biases (wandb).
 
-<img width="2618" height="1290" alt="image" src="https://github.com/user-attachments/assets/db8aef12-dfda-4667-aa56-9b131ff8e594" />
+<div align="center">
+  <img width="500" alt="image" src="https://github.com/user-attachments/assets/db8aef12-dfda-4667-aa56-9b131ff8e594" />
+  <p><em>Example: W&amp;B Dashboard using CrowdEVAL while fine-tuning an T2I model to generate full wine glasses.</em></p>
+</div>
+
 
 ## Features
 
