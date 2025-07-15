@@ -1,4 +1,4 @@
-# Crowd Evaluation for T2I
+# Crowd Evaluation for T2I (T2V coming soon)
 
 A Python library for integrating crowd evaluation into your machine learning training loops. This library provides asynchronous, non-blocking evaluation of model outputs (currently supporting image generation) with automatic logging to Weights & Biases (wandb).
 
