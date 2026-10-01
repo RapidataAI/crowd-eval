@@ -50,7 +50,7 @@ run.finish()
 
 ### Prerequisites
 
-- Python 3.9+
+- Python 3.10+
 - A [Rapidata](https://rapidata.ai/) account with API credentials
 - A [Weights & Biases](https://wandb.ai/) account
 

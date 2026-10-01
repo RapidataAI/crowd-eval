@@ -2,6 +2,7 @@ import asyncio
 import os
 import pandas as pd
 from crowd_eval.checkpoint_evaluation.checkpoint_evaluator import Evaluator
+from rapidata import RapidataJob
 from wandb.sdk.wandb_run import Run
 
 class ImageEvaluator(Evaluator):
@@ -107,68 +108,72 @@ class ImageEvaluator(Evaluator):
         """Async version that polls for results without blocking."""
         if self._responses_preference == 0:
             return None
-        
-        # Create and start the order - this is fast
-        order = await asyncio.to_thread(
-            lambda: self.client.order.create_compare_order(
-                name=f"{self.model_name}_preference_image_{assigned_index}",
-                instruction="Which image do you prefer?",
-                datapoints=self._get_datapoints(image_paths)[0],
-                validation_set_id="66d5ac99fc00255c2926df0c",
-                responses_per_datapoint=self._responses_preference,
-            ).run()
-        )
 
-        # Wait for results asynchronously with polling using base class method
-        results = await self._wait_for_results_async(order)
+        job = await asyncio.to_thread(
+            self._assign_compare_job,
+            name=f"{self.model_name}_preference_image_{assigned_index}",
+            instruction="Which image do you prefer?",
+            datapoints=self._get_datapoints(image_paths)[0],
+            responses_per_datapoint=self._responses_preference,
+        )
+        results = await self._wait_for_results_async(job)
         results = results.to_pandas()
         average_score = results["A_summedUserScoresRatios"].mean()
         return float(average_score)
-    
+
     async def _evaluate_alignment_image_async(self, image_paths: list[str], assigned_index: int) -> float:
         """Async version that polls for results without blocking."""
         if self._responses_alignment == 0:
             return None
-        
-        # Create and start the order - this is fast
+
         datapoints = self._get_datapoints(image_paths)
-        order = await asyncio.to_thread(
-            lambda: self.client.order.create_compare_order(
-                name=f"{self.model_name}_alignment_image_{assigned_index}",
-                instruction="Which image matches the description better?",
-                datapoints=datapoints[0],
-                contexts=datapoints[1],
-                validation_set_id="6790c1b73711ca1ae1d948c3",
-                responses_per_datapoint=self._responses_alignment,
-            ).run()
+        job = await asyncio.to_thread(
+            self._assign_compare_job,
+            name=f"{self.model_name}_alignment_image_{assigned_index}",
+            instruction="Which image matches the description better?",
+            datapoints=datapoints[0],
+            contexts=datapoints[1],
+            responses_per_datapoint=self._responses_alignment,
         )
-        # Wait for results asynchronously with polling using base class method
-        results = await self._wait_for_results_async(order)
+        results = await self._wait_for_results_async(job)
         results = results.to_pandas()
         average_score = results["A_summedUserScoresRatios"].mean()
         return float(average_score)
-    
+
     async def _evaluate_coherence_image_async(self, image_paths: list[str], assigned_index: int) -> float:
         """Async version that polls for results without blocking."""
         if self._responses_coherence == 0:
             return None
-        
-        # Create and start the order - this is fast
-        datapoints = self._get_datapoints(image_paths)
-        order = await asyncio.to_thread(
-            lambda: self.client.order.create_compare_order(
-                name=f"{self.model_name}_coherence_image_{assigned_index}",
-                instruction="Which image has more glitches and is more likely to be AI generated?",
-                datapoints=datapoints[0],
-                validation_set_id="67cafc95bc71604b08d8aa62",
-                responses_per_datapoint=self._responses_coherence,
-            ).run()
+
+        job = await asyncio.to_thread(
+            self._assign_compare_job,
+            name=f"{self.model_name}_coherence_image_{assigned_index}",
+            instruction="Which image has more glitches and is more likely to be AI generated?",
+            datapoints=self._get_datapoints(image_paths)[0],
+            responses_per_datapoint=self._responses_coherence,
         )
-        # Wait for results asynchronously with polling using base class method
-        results = await self._wait_for_results_async(order)
+        results = await self._wait_for_results_async(job)
         results = results.to_pandas()
         average_score = results["A_summedUserScoresRatios"].mean()
         return 1 - float(average_score) # Invert the score because the question is inverted
+
+    def _assign_compare_job(
+        self,
+        name: str,
+        instruction: str,
+        datapoints: list[list[str]],
+        responses_per_datapoint: int,
+        contexts: list[str] | None = None,
+    ) -> RapidataJob:
+        job_definition = self.client.job.create_compare_job_definition(
+            name=name,
+            instruction=instruction,
+            datapoints=datapoints,
+            contexts=contexts,
+            responses_per_datapoint=responses_per_datapoint,
+        )
+        audience = self.client.audience.get_audience_by_id("global")
+        return audience.assign_job(job_definition)
 
     def _get_datapoints(self, image_paths: list[str]) -> tuple[list[list[str]], list[str]]:
         if self.baseline_media is not None:

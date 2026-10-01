@@ -1,19 +1,14 @@
-from rapidata import RapidataClient, RapidataOutputManager
+from rapidata import RapidataClient, RapidataJob, RapidataResults, rapidata_config
 from crowd_eval.logger.ordered_wandb_logger import OrderedWandbLogger
 from wandb.sdk.wandb_run import Run
 from typing import Any, Optional
 import asyncio
 import threading
 from abc import abstractmethod
-import json
-from rapidata.api_client.exceptions import ApiException
-from rapidata.api_client.models.order_state import OrderState
-from rapidata.rapidata_client.order.rapidata_results import RapidataResults
-from rapidata.rapidata_client.order.rapidata_order import RapidataOrder
 
 class Evaluator:
     def __init__(self, wandb_run: Run, model_name: str | None = None, client_id: str | None = None, client_secret: str | None = None):
-        RapidataOutputManager.enable_silent_mode()
+        rapidata_config.logging.silent_mode = True
         self.client = RapidataClient(client_id=client_id, client_secret=client_secret)
         self.model_name = model_name or "model"
         self.logger = OrderedWandbLogger(wandb_run)
@@ -63,23 +58,9 @@ class Evaluator:
         assert self._background_loop is not None
         return self._background_loop
 
-    async def _wait_for_results_async(self, order: RapidataOrder, poll_interval: float = 5.0) -> RapidataResults:
-        """Asynchronously wait for order completion and return results."""
-        completed_states = [OrderState.COMPLETED, OrderState.PAUSED, OrderState.MANUALREVIEW, OrderState.FAILED]
-        
-        # Poll for completion without blocking
-        while True:
-            status = await asyncio.to_thread(order.get_status)
-            if status in completed_states:
-                break
-            await asyncio.sleep(poll_interval)
-        
-        # Get the final results
-        try:
-            results_json = await asyncio.to_thread(lambda: order.get_results())
-            return results_json
-        except (ApiException, json.JSONDecodeError) as e:
-            raise Exception(f"Failed to get order results: {str(e)}") from e
+    async def _wait_for_results_async(self, job: RapidataJob) -> RapidataResults:
+        """Asynchronously wait for job completion and return results."""
+        return await asyncio.to_thread(job.get_results)
 
     def _schedule_background_evaluation(self, coro, assigned_index: int) -> None:
         """Schedule a background evaluation coroutine to run."""
